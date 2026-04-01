@@ -9,6 +9,9 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
+// Trust Render's proxy
+app.set('trust proxy', 1);
+
 // Security
 app.use(helmet());
 const allowedOrigins = [
