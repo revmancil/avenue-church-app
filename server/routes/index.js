@@ -4,6 +4,7 @@ const router = Router();
 router.use('/auth',           require('./auth.routes'));
 router.use('/users',          require('./user.routes'));
 router.use('/families',       require('./family.routes'));
+router.use('/settings',       require('./settings.routes'));
 router.use('/sermons',        require('./sermon.routes'));
 router.use('/events',         require('./event.routes'));
 router.use('/donations',      require('./donation.routes'));

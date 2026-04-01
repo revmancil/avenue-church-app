@@ -157,4 +157,40 @@ async function recordDonation(req, res, next) {
   }
 }
 
-module.exports = { listDonations, getDonationAnalytics, myGiving, recordDonation };
+// POST /api/donations/stripe/create-intent  (any authenticated user)
+async function createStripeIntent(req, res, next) {
+  try {
+    const { amount, fund = 'General', donor_name, donor_email } = req.body;
+
+    if (!amount || amount < 1) return res.status(400).json({ error: 'Minimum donation is $1.00' });
+
+    // Fetch Stripe secret key from settings
+    const { rows } = await db.query(
+      "SELECT value FROM settings WHERE key = 'stripe_secret_key'"
+    );
+    const secretKey = rows[0]?.value;
+    if (!secretKey || !secretKey.startsWith('sk_')) {
+      return res.status(503).json({ error: 'Stripe is not configured. Please contact the administrator.' });
+    }
+
+    const stripe = require('stripe')(secretKey);
+
+    const intent = await stripe.paymentIntents.create({
+      amount: Math.round(parseFloat(amount) * 100), // convert to cents
+      currency: 'usd',
+      metadata: {
+        fund,
+        donor_name:  donor_name  || '',
+        donor_email: donor_email || '',
+        user_id:     req.user.id,
+        church:      'Avenue Progressive Baptist Church',
+      },
+    });
+
+    res.json({ clientSecret: intent.client_secret });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listDonations, getDonationAnalytics, myGiving, recordDonation, createStripeIntent };

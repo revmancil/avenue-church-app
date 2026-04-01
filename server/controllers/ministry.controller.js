@@ -115,4 +115,40 @@ async function listMinistryMembers(req, res, next) {
   }
 }
 
-module.exports = { listMinistries, getMinistry, createMinistry, joinMinistry, leaveMinistry, listMinistryMembers };
+// PATCH /api/ministries/:id  (Admin/Staff)
+async function updateMinistry(req, res, next) {
+  try {
+    const { name, description, leader_id, meets_at } = req.body;
+    const { rows } = await db.query(
+      `UPDATE ministries SET
+         name        = COALESCE($1, name),
+         description = COALESCE($2, description),
+         leader_id   = COALESCE($3, leader_id),
+         meets_at    = COALESCE($4, meets_at)
+       WHERE id = $5 RETURNING *`,
+      [name, description, leader_id, meets_at, req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Ministry not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'A ministry with that name already exists' });
+    next(err);
+  }
+}
+
+// DELETE /api/ministries/:id  (Admin only)
+async function deleteMinistry(req, res, next) {
+  try {
+    const { rowCount } = await db.query('DELETE FROM ministries WHERE id = $1', [req.params.id]);
+    if (!rowCount) return res.status(404).json({ error: 'Ministry not found' });
+    res.json({ message: 'Ministry deleted' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  listMinistries, getMinistry, createMinistry,
+  updateMinistry, deleteMinistry,
+  joinMinistry, leaveMinistry, listMinistryMembers
+};

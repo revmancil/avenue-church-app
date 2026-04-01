@@ -20,6 +20,8 @@ import MemberProfile     from './pages/member/MemberProfile';
 import GivingHistory     from './pages/member/GivingHistory';
 import Ministries        from './pages/member/Ministries';
 import CommsHub          from './pages/comms/CommsHub';
+import DonatePage        from './pages/donate/DonatePage';
+import Settings          from './pages/admin/Settings';
 import NotFound          from './pages/NotFound';
 
 function RedirectHome() {
@@ -50,6 +52,7 @@ export default function App() {
           <Route path="/directory" element={<MemberDirectory />} />
           <Route path="/sermons"   element={<SermonHub />} />
           <Route path="/events"    element={<EventsManager />} />
+          <Route path="/donate"    element={<DonatePage />} />
 
           {/* Staff+ */}
           <Route element={<ProtectedRoute minRole="staff" />}>
@@ -61,6 +64,7 @@ export default function App() {
           <Route element={<ProtectedRoute roles={['admin']} />}>
             <Route path="/admin"     element={<AdminDashboard />} />
             <Route path="/donations" element={<DonationDashboard />} />
+            <Route path="/settings"  element={<Settings />} />
           </Route>
         </Route>
       </Route>

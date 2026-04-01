@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const ROLE_BADGE = {
@@ -16,6 +17,14 @@ export default function Navbar() {
         Avenue Progressive Baptist Church
       </h2>
       <div className="flex items-center gap-3 ml-auto">
+        {/* Donate button — visible to all roles */}
+        <Link
+          to="/donate"
+          className="flex items-center gap-1.5 bg-gold-500 hover:bg-gold-600 text-white text-sm font-semibold px-4 py-1.5 rounded-full transition-colors shadow-sm"
+        >
+          🙏 Give
+        </Link>
+
         <span className={ROLE_BADGE[user?.role] || 'badge-member'}>
           {user?.role?.toUpperCase()}
         </span>

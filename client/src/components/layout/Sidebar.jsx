@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard, BookOpen, Calendar, Users,
-  Heart, Mail, UserCheck, DollarSign
+  Heart, Mail, UserCheck, DollarSign, Settings
 } from 'lucide-react';
 
 function NavItem({ to, icon: Icon, label }) {
@@ -60,6 +60,7 @@ export default function Sidebar() {
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1 mt-1">Admin</p>
             <NavItem to="/admin"     icon={LayoutDashboard} label="User Management" />
             <NavItem to="/donations" icon={DollarSign}      label="Donation Dashboard" />
+            <NavItem to="/settings"  icon={Settings}        label="Donation Settings" />
             <div className="pt-2" />
           </>
         )}
