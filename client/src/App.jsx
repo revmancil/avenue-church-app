@@ -5,6 +5,7 @@ import ProtectedRoute from './components/shared/ProtectedRoute';
 
 // Auth pages
 import Login          from './pages/auth/Login';
+import Signup         from './pages/auth/Signup';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword  from './pages/auth/ResetPassword';
 
@@ -35,6 +36,7 @@ export default function App() {
     <Routes>
       {/* Public */}
       <Route path="/login"           element={<Login />} />
+      <Route path="/signup"          element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
 
