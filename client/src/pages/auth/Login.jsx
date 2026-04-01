@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 export default function Login() {
   const { login } = useAuth();
   const navigate  = useNavigate();
-  const [form, setForm]     = useState({ email: '', password: '' });
+  const [form, setForm]       = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -24,14 +24,23 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-church-800 to-church-600 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-church-900 to-church-700 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
-        {/* Header */}
+        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-church-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-2xl font-bold">A</span>
+          <img
+            src="/logo.png"
+            alt="The Avenue Logo"
+            className="w-24 h-24 object-contain mx-auto mb-4"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              document.getElementById('logo-fallback').style.display = 'flex';
+            }}
+          />
+          <div id="logo-fallback" className="w-20 h-20 bg-church-500 rounded-2xl items-center justify-center mx-auto mb-4 hidden">
+            <span className="text-white text-3xl font-bold">A</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Avenue PBC</h1>
+          <h1 className="text-2xl font-bold text-gray-900">The Avenue</h1>
           <p className="text-gray-500 text-sm mt-1">Member Portal Sign In</p>
         </div>
 
