@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const { listDonations, myGiving, recordDonation } = require('../controllers/donation.controller');
+const { listDonations, getDonationAnalytics, myGiving, recordDonation } = require('../controllers/donation.controller');
 const authenticate = require('../middleware/authenticate');
 const { authorize } = require('../middleware/authorize');
 
@@ -7,11 +7,13 @@ const router = Router();
 
 router.use(authenticate);
 
-// Admin-only donation dashboard
-router.get('/',         authorize('admin'), listDonations);
-router.post('/',        authorize('admin', 'staff'), recordDonation);
+// Admin-only: full donation dashboard + analytics
+// Pastor and Staff are explicitly blocked from financial totals
+router.get('/',           authorize('admin'), listDonations);
+router.get('/analytics',  authorize('admin'), getDonationAnalytics);
+router.post('/',          authorize('admin'), recordDonation);
 
-// Member can view own giving
-router.get('/my-giving', myGiving);
+// Any authenticated member can view their OWN giving
+router.get('/my-giving',  myGiving);
 
 module.exports = router;

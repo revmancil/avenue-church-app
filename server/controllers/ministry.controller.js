@@ -6,14 +6,49 @@ async function listMinistries(req, res, next) {
     const { rows } = await db.query(
       `SELECT m.*,
               u.first_name || ' ' || u.last_name AS leader_name,
-              COUNT(mm.user_id) AS member_count
+              COUNT(DISTINCT mm.user_id)          AS member_count,
+              COUNT(DISTINCT e.id)                AS event_count
        FROM ministries m
-       LEFT JOIN users u ON u.id = m.leader_id
+       LEFT JOIN users u             ON u.id = m.leader_id
        LEFT JOIN member_ministries mm ON mm.ministry_id = m.id
+       LEFT JOIN events e            ON e.ministry_id = m.id
        GROUP BY m.id, u.first_name, u.last_name
        ORDER BY m.name`
     );
     res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/ministries/:id  (detail view)
+async function getMinistry(req, res, next) {
+  try {
+    const { rows } = await db.query(
+      `SELECT m.*,
+              u.first_name || ' ' || u.last_name AS leader_name,
+              COUNT(DISTINCT mm.user_id)          AS member_count,
+              COUNT(DISTINCT e.id)                AS event_count
+       FROM ministries m
+       LEFT JOIN users u             ON u.id = m.leader_id
+       LEFT JOIN member_ministries mm ON mm.ministry_id = m.id
+       LEFT JOIN events e            ON e.ministry_id = m.id
+       WHERE m.id = $1
+       GROUP BY m.id, u.first_name, u.last_name`,
+      [req.params.id]
+    );
+
+    if (!rows[0]) return res.status(404).json({ error: 'Ministry not found' });
+
+    // Upcoming events linked to this ministry
+    const { rows: events } = await db.query(
+      `SELECT id, title, event_date, location
+       FROM events WHERE ministry_id = $1 AND event_date >= NOW()
+       ORDER BY event_date ASC LIMIT 5`,
+      [req.params.id]
+    );
+
+    res.json({ ...rows[0], upcoming_events: events });
   } catch (err) {
     next(err);
   }
@@ -80,4 +115,4 @@ async function listMinistryMembers(req, res, next) {
   }
 }
 
-module.exports = { listMinistries, createMinistry, joinMinistry, leaveMinistry, listMinistryMembers };
+module.exports = { listMinistries, getMinistry, createMinistry, joinMinistry, leaveMinistry, listMinistryMembers };

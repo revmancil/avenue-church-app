@@ -117,9 +117,14 @@ export default function Ministries() {
               {m.meets_at && (
                 <p className="text-xs text-church-600 font-medium">{m.meets_at}</p>
               )}
-              {m.leader_name && (
-                <p className="text-xs text-gray-400">Leader: {m.leader_name}</p>
-              )}
+              <div className="flex items-center gap-3 text-xs text-gray-400">
+                {m.leader_name && <span>Leader: {m.leader_name}</span>}
+                {parseInt(m.event_count) > 0 && (
+                  <span className="bg-gold-50 text-gold-600 px-2 py-0.5 rounded-full font-medium">
+                    {m.event_count} event{m.event_count === '1' ? '' : 's'}
+                  </span>
+                )}
+              </div>
               <button
                 onClick={() => joined ? leave(m.id) : join(m.id)}
                 className={joined ? 'btn-secondary text-sm' : 'btn-primary text-sm'}

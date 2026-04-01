@@ -71,4 +71,34 @@ async function sendSmsBroadcast(req, res, next) {
   }
 }
 
-module.exports = { sendEmailBroadcast, sendSmsBroadcast };
+// POST /api/communications/push  (Staff+ — stub, ready for Firebase/OneSignal)
+async function sendPushBroadcast(req, res, next) {
+  try {
+    const { title, body, audience } = req.body;
+
+    if (!title || !body) return res.status(400).json({ error: 'Title and body are required' });
+
+    // Count recipients for the response
+    let roleFilter = '';
+    if (audience === 'members')    roleFilter = "AND role = 'member'";
+    else if (audience === 'staff') roleFilter = "AND role IN ('staff', 'admin', 'pastor')";
+
+    const { rows } = await db.query(
+      `SELECT COUNT(*) AS count FROM users WHERE is_active = TRUE ${roleFilter}`
+    );
+    const recipientCount = parseInt(rows[0].count);
+
+    // Push notification stub — integrate Firebase Admin SDK or OneSignal here
+    // Example Firebase: await admin.messaging().sendMulticast({ tokens, notification: { title, body } })
+    console.log(`[Push Stub] "${title}" → ${body} (audience: ${audience}, ~${recipientCount} users)`);
+
+    res.json({
+      message: `Push notification queued for ~${recipientCount} recipient(s)`,
+      note: 'Push service not yet configured — integrate Firebase or OneSignal to activate',
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { sendEmailBroadcast, sendSmsBroadcast, sendPushBroadcast };
