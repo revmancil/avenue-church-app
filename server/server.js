@@ -11,8 +11,20 @@ const app = express();
 
 // Security
 app.use(helmet());
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://avenue-church-app.vercel.app',
+  process.env.CLIENT_URL,
+].filter(Boolean).map(o => o.replace(/\/$/, '')); // strip trailing slashes
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ''))) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked: ${origin}`));
+    }
+  },
   credentials: true,
 }));
 
