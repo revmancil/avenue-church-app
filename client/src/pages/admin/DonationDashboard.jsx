@@ -1,11 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { X } from 'lucide-react';
+import { X, Search, User } from 'lucide-react';
 
 const FUNDS   = ['General', 'Building Fund', 'Missions', 'Youth Ministry', 'Benevolence'];
 const METHODS = ['cash', 'check', 'card', 'online', 'other'];
-const EMPTY_FORM = { amount: '', fund: 'General', method: 'cash', donated_at: '', notes: '' };
+const EMPTY_FORM = {
+  donor_type: 'member',   // 'member' | 'guest' | 'anonymous'
+  user_id:    '',
+  donor_name: '',
+  amount:     '',
+  fund:       'General',
+  method:     'cash',
+  donated_at: '',
+  notes:      '',
+};
 
 export default function DonationDashboard() {
   const [data, setData]           = useState({ donations: [], total_amount: 0 });
@@ -13,9 +22,15 @@ export default function DonationDashboard() {
   const [loading, setLoading]     = useState(true);
   const [filters, setFilters]     = useState({ from: '', to: '', fund: '' });
   const [showModal, setShowModal] = useState(false);
-  const [saving, setSaving]       = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [form, setForm]           = useState(EMPTY_FORM);
+  const [saving, setSaving]         = useState(false);
+  const [activeTab, setActiveTab]   = useState('overview');
+  const [form, setForm]             = useState(EMPTY_FORM);
+  // Member search state
+  const [memberSearch, setMemberSearch]   = useState('');
+  const [memberResults, setMemberResults] = useState([]);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [searchOpen, setSearchOpen]       = useState(false);
+  const searchRef = useRef(null);
 
   const fetchDonations = async () => {
     setLoading(true);
@@ -35,15 +50,82 @@ export default function DonationDashboard() {
 
   useEffect(() => { fetchDonations(); }, [filters]);
 
-  const openModal  = () => { setForm(EMPTY_FORM); setShowModal(true); };
+  const openModal  = () => {
+    setForm(EMPTY_FORM);
+    setMemberSearch('');
+    setMemberResults([]);
+    setSelectedMember(null);
+    setSearchOpen(false);
+    setShowModal(true);
+  };
   const closeModal = () => setShowModal(false);
+
+  // Search members as user types
+  useEffect(() => {
+    if (!memberSearch.trim() || form.donor_type !== 'member') {
+      setMemberResults([]);
+      setSearchOpen(false);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const { data } = await api.get('/users', { params: { search: memberSearch, limit: 10 } });
+        setMemberResults(data.users || []);
+        setSearchOpen(true);
+      } catch { /* silent */ }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [memberSearch, form.donor_type]);
+
+  const selectMember = (u) => {
+    setSelectedMember(u);
+    setMemberSearch(`${u.first_name} ${u.last_name}`);
+    setForm((f) => ({ ...f, user_id: u.id }));
+    setSearchOpen(false);
+  };
+
+  const clearMember = () => {
+    setSelectedMember(null);
+    setMemberSearch('');
+    setForm((f) => ({ ...f, user_id: '' }));
+  };
+
+  const changeDonorType = (type) => {
+    setForm((f) => ({ ...f, donor_type: type, user_id: '', donor_name: '' }));
+    setSelectedMember(null);
+    setMemberSearch('');
+    setMemberResults([]);
+    setSearchOpen(false);
+  };
 
   const recordDonation = async (e) => {
     e.preventDefault();
+    if (form.donor_type === 'member' && !form.user_id) {
+      toast.error('Please select a member from the list');
+      return;
+    }
+    if (form.donor_type === 'guest' && !form.donor_name.trim()) {
+      toast.error('Please enter the donor\'s name');
+      return;
+    }
     setSaving(true);
     try {
-      await api.post('/donations', form);
-      toast.success('Donation recorded successfully');
+      const payload = {
+        amount:     form.amount,
+        fund:       form.fund,
+        method:     form.method,
+        donated_at: form.donated_at,
+        notes:      form.notes,
+        user_id:    form.donor_type === 'member' ? form.user_id : null,
+        donor_name: form.donor_type === 'guest'  ? form.donor_name : null,
+      };
+      await api.post('/donations', payload);
+      const label = form.donor_type === 'member'
+        ? memberSearch
+        : form.donor_type === 'guest'
+        ? form.donor_name
+        : 'Anonymous';
+      toast.success(`Donation recorded for ${label}`);
       closeModal();
       fetchDonations();
     } catch (err) {
@@ -297,6 +379,95 @@ export default function DonationDashboard() {
               <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
             </div>
             <form onSubmit={recordDonation} className="p-6 space-y-4">
+
+              {/* ── Donor type selector ── */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-2">Donor</label>
+                <div className="flex gap-2 mb-3">
+                  {[
+                    { key: 'member',    label: 'Member' },
+                    { key: 'guest',     label: 'Guest / Non-member' },
+                    { key: 'anonymous', label: 'Anonymous' },
+                  ].map(({ key, label }) => (
+                    <button
+                      key={key} type="button"
+                      onClick={() => changeDonorType(key)}
+                      className={`flex-1 text-xs font-semibold py-2 px-3 rounded-lg border transition-colors ${
+                        form.donor_type === key
+                          ? 'bg-church-700 text-white border-church-700'
+                          : 'bg-white text-gray-600 border-gray-300 hover:border-church-400'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Member search */}
+                {form.donor_type === 'member' && (
+                  <div className="relative" ref={searchRef}>
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        className={`${field} pl-8 pr-8`}
+                        placeholder="Search by name or email…"
+                        value={memberSearch}
+                        onChange={(e) => { setMemberSearch(e.target.value); setSelectedMember(null); setForm((f) => ({ ...f, user_id: '' })); }}
+                        autoComplete="off"
+                      />
+                      {selectedMember && (
+                        <button type="button" onClick={clearMember}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                    {searchOpen && memberResults.length > 0 && (
+                      <ul className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {memberResults.map((u) => (
+                          <li key={u.id}>
+                            <button type="button" onClick={() => selectMember(u)}
+                              className="w-full text-left px-4 py-2.5 hover:bg-church-50 text-sm">
+                              <span className="font-medium text-gray-900">{u.first_name} {u.last_name}</span>
+                              <span className="text-gray-400 text-xs ml-2">{u.email}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {searchOpen && memberResults.length === 0 && memberSearch.trim() && (
+                      <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg px-4 py-3 text-sm text-gray-400">
+                        No members found
+                      </div>
+                    )}
+                    {selectedMember && (
+                      <div className="mt-1.5 flex items-center gap-2 text-xs text-green-700 font-medium">
+                        <User size={12} />
+                        {selectedMember.first_name} {selectedMember.last_name} selected
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Guest name */}
+                {form.donor_type === 'guest' && (
+                  <input
+                    className={field}
+                    placeholder="Enter donor's full name"
+                    value={form.donor_name}
+                    onChange={(e) => setForm({ ...form, donor_name: e.target.value })}
+                  />
+                )}
+
+                {/* Anonymous note */}
+                {form.donor_type === 'anonymous' && (
+                  <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
+                    This donation will be recorded without a name attached.
+                  </p>
+                )}
+              </div>
+
+              {/* ── Amount ── */}
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Amount ($) *</label>
                 <input
@@ -306,6 +477,7 @@ export default function DonationDashboard() {
                   onChange={(e) => setForm({ ...form, amount: e.target.value })}
                 />
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Fund</label>
@@ -324,17 +496,20 @@ export default function DonationDashboard() {
                   </select>
                 </div>
               </div>
+
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Date</label>
                 <input type="date" className={field} value={form.donated_at}
                   onChange={(e) => setForm({ ...form, donated_at: e.target.value })} />
               </div>
+
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Notes (optional)</label>
                 <input type="text" className={field} placeholder="e.g. Sunday offering"
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               </div>
+
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={closeModal}
                   className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">Cancel</button>

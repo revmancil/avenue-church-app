@@ -17,7 +17,9 @@ async function listDonations(req, res, next) {
     params.push(limit, offset);
 
     const { rows } = await db.query(
-      `SELECT d.*, u.first_name, u.last_name, u.email, u.address, u.phone
+      `SELECT d.*,
+              u.first_name, u.last_name, u.email, u.address, u.phone,
+              COALESCE(u.first_name || ' ' || u.last_name, d.donor_name) AS display_name
        FROM donations d
        LEFT JOIN users u ON u.id = d.user_id
        ${where}
@@ -84,7 +86,8 @@ async function getDonationAnalytics(req, res, next) {
     // Recent 10 donations
     const { rows: recent } = await db.query(
       `SELECT d.id, d.amount, d.fund, d.method, d.donated_at,
-              u.first_name, u.last_name
+              u.first_name, u.last_name, d.donor_name,
+              COALESCE(u.first_name || ' ' || u.last_name, d.donor_name) AS display_name
        FROM donations d
        LEFT JOIN users u ON u.id = d.user_id
        ORDER BY d.donated_at DESC
@@ -145,11 +148,20 @@ async function myGiving(req, res, next) {
 // POST /api/donations  (Admin only — financial integrity)
 async function recordDonation(req, res, next) {
   try {
-    const { user_id, amount, fund, method, notes, donated_at } = req.body;
+    const { user_id, donor_name, amount, fund, method, notes, donated_at } = req.body;
     const { rows } = await db.query(
-      `INSERT INTO donations (user_id, amount, fund, method, notes, donated_at, recorded_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [user_id || null, amount, fund || 'General', method || 'cash', notes, donated_at || new Date(), req.user.id]
+      `INSERT INTO donations (user_id, donor_name, amount, fund, method, notes, donated_at, recorded_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [
+        user_id   || null,
+        donor_name && !user_id ? donor_name.trim() : null,
+        amount,
+        fund      || 'General',
+        method    || 'cash',
+        notes     || null,
+        donated_at || new Date(),
+        req.user.id,
+      ]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
