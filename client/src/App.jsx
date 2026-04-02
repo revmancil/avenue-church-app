@@ -22,6 +22,7 @@ import Ministries        from './pages/member/Ministries';
 import CommsHub          from './pages/comms/CommsHub';
 import DonatePage        from './pages/donate/DonatePage';
 import Settings          from './pages/admin/Settings';
+import DonationReports   from './pages/admin/DonationReports';
 import NotFound          from './pages/NotFound';
 
 function RedirectHome() {
@@ -64,6 +65,7 @@ export default function App() {
           <Route element={<ProtectedRoute roles={['admin']} />}>
             <Route path="/admin"     element={<AdminDashboard />} />
             <Route path="/donations" element={<DonationDashboard />} />
+            <Route path="/reports"   element={<DonationReports />} />
             <Route path="/settings"  element={<Settings />} />
           </Route>
         </Route>
