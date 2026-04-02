@@ -112,4 +112,74 @@ async function updateMe(req, res, next) {
   }
 }
 
-module.exports = { listUsers, updateRole, toggleStatus, getUser, updateMe };
+// POST /api/users  (Admin only — create a new member account)
+async function createUser(req, res, next) {
+  try {
+    const bcrypt = require('bcryptjs');
+    const { first_name, last_name, email, password, phone, role } = req.body;
+
+    if (!first_name || !last_name || !email || !password) {
+      return res.status(400).json({ error: 'First name, last name, email, and password are required' });
+    }
+
+    const validRoles = ['admin', 'pastor', 'staff', 'member'];
+    const assignedRole = validRoles.includes(role) ? role : 'member';
+
+    const existing = await db.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    if (existing.rowCount > 0) {
+      return res.status(409).json({ error: 'An account with that email already exists' });
+    }
+
+    const password_hash = await bcrypt.hash(password, 12);
+
+    const { rows } = await db.query(
+      `INSERT INTO users (email, password_hash, first_name, last_name, phone, role)
+       VALUES ($1, $2, $3, $4, $5, $6::user_role)
+       RETURNING ${SAFE_FIELDS}`,
+      [email.toLowerCase(), password_hash, first_name, last_name, phone || null, assignedRole]
+    );
+
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    if (err.code === '23505' && err.constraint === 'users_email_unique') {
+      return res.status(409).json({ error: 'An account with that email already exists' });
+    }
+    next(err);
+  }
+}
+
+// PATCH /api/users/:id  (Admin only — edit a member's profile)
+async function updateUser(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { first_name, last_name, email, phone, address, bio } = req.body;
+
+    // Check email uniqueness if changing email
+    if (email) {
+      const existing = await db.query('SELECT id FROM users WHERE email = $1 AND id != $2', [email.toLowerCase(), id]);
+      if (existing.rowCount > 0) {
+        return res.status(409).json({ error: 'That email is already used by another account' });
+      }
+    }
+
+    const { rows } = await db.query(
+      `UPDATE users SET
+         first_name = COALESCE($1, first_name),
+         last_name  = COALESCE($2, last_name),
+         email      = COALESCE($3, email),
+         phone      = COALESCE($4, phone),
+         address    = COALESCE($5, address),
+         bio        = COALESCE($6, bio)
+       WHERE id = $7
+       RETURNING ${SAFE_FIELDS}`,
+      [first_name || null, last_name || null, email ? email.toLowerCase() : null, phone || null, address || null, bio || null, id]
+    );
+
+    if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listUsers, createUser, updateUser, updateRole, toggleStatus, getUser, updateMe };
