@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { Printer, Download, ChevronDown, ChevronUp, Settings2 } from 'lucide-react';
+import { Printer, Download, ChevronDown, ChevronUp, Settings2, X } from 'lucide-react';
 
 const STORAGE_KEY = 'avenue_church_info';
 
@@ -429,7 +429,16 @@ export default function DonationReports() {
                 {loading ? (
                   <tr><td colSpan={6} className="text-center py-10 text-gray-400">Loading…</td></tr>
                 ) : donors.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-10 text-gray-400">No contributions found for {year}</td></tr>
+                  <tr>
+                    <td colSpan={6} className="text-center py-12">
+                      <p className="text-gray-500 font-medium">No donations found for {year}</p>
+                      <p className="text-gray-400 text-xs mt-1">
+                        Try a different tax year above, or go to{' '}
+                        <a href="/donations" className="text-church-700 underline font-medium">Donation Dashboard</a>
+                        {' '}to record donations first.
+                      </p>
+                    </td>
+                  </tr>
                 ) : donors.map((d) => (
                   <tr key={d.user_id || d.donations[0]?.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">
@@ -446,16 +455,16 @@ export default function DonationReports() {
                     <td className="px-4 py-3 text-gray-700">{d.donations.length}</td>
                     <td className="px-4 py-3 font-bold text-green-700">${fmt(d.total)}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => setPreview(previewDonor?.user_id === d.user_id ? null : d)}
-                          className="text-xs font-medium text-church-700 hover:text-church-900"
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-church-100 text-church-800 hover:bg-church-200 transition-colors"
                         >
                           {previewDonor?.user_id === d.user_id ? 'Hide' : 'Preview'}
                         </button>
                         <button
                           onClick={() => printOne(d)}
-                          className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+                          className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
                         >
                           <Printer size={12} /> Print
                         </button>
@@ -484,10 +493,13 @@ export default function DonationReports() {
               </h3>
               <div className="flex items-center gap-2">
                 <button onClick={() => printOne(previewDonor)}
-                  className="flex items-center gap-1.5 text-sm font-medium bg-church-700 hover:bg-church-800 text-white px-3 py-1.5 rounded-lg">
-                  <Printer size={13} /> Print This Statement
+                  className="flex items-center gap-1.5 text-sm font-semibold bg-church-700 hover:bg-church-800 text-white px-4 py-2 rounded-lg transition-colors">
+                  <Printer size={14} /> Print This Statement
                 </button>
-                <button onClick={() => setPreview(null)} className="text-gray-400 hover:text-gray-600 text-lg font-bold leading-none">×</button>
+                <button onClick={() => setPreview(null)}
+                  className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+                  <X size={18} />
+                </button>
               </div>
             </div>
             <GivingStatement donor={previewDonor} church={church} year={year} />

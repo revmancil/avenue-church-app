@@ -1,17 +1,21 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import { X } from 'lucide-react';
 
-const FUNDS = ['General', 'Building Fund', 'Missions', 'Youth Ministry', 'Benevolence'];
+const FUNDS   = ['General', 'Building Fund', 'Missions', 'Youth Ministry', 'Benevolence'];
+const METHODS = ['cash', 'check', 'card', 'online', 'other'];
+const EMPTY_FORM = { amount: '', fund: 'General', method: 'cash', donated_at: '', notes: '' };
 
 export default function DonationDashboard() {
   const [data, setData]           = useState({ donations: [], total_amount: 0 });
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading]     = useState(true);
   const [filters, setFilters]     = useState({ from: '', to: '', fund: '' });
-  const [showForm, setShowForm]   = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving]       = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [form, setForm]           = useState({ amount: '', fund: 'General', method: 'cash', donated_at: '', notes: '' });
+  const [form, setForm]           = useState(EMPTY_FORM);
 
   const fetchDonations = async () => {
     setLoading(true);
@@ -31,29 +35,37 @@ export default function DonationDashboard() {
 
   useEffect(() => { fetchDonations(); }, [filters]);
 
+  const openModal  = () => { setForm(EMPTY_FORM); setShowModal(true); };
+  const closeModal = () => setShowModal(false);
+
   const recordDonation = async (e) => {
     e.preventDefault();
+    setSaving(true);
     try {
       await api.post('/donations', form);
-      toast.success('Donation recorded');
-      setShowForm(false);
-      setForm({ amount: '', fund: 'General', method: 'cash', donated_at: '', notes: '' });
+      toast.success('Donation recorded successfully');
+      closeModal();
       fetchDonations();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to record donation');
+    } finally {
+      setSaving(false);
     }
   };
 
   const ytdTotal = analytics?.monthly?.reduce((s, m) => s + parseFloat(m.total || 0), 0) || 0;
 
+  const field = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-church-500';
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Donation Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">Financial records — Admin access only</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="btn-primary">+ Record Donation</button>
+        <button onClick={openModal} className="btn-primary">+ Record Donation</button>
       </div>
 
       {/* Summary cards */}
@@ -95,14 +107,13 @@ export default function DonationDashboard() {
       {/* Overview Tab */}
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Monthly breakdown */}
           <div className="card">
             <h3 className="font-semibold text-gray-900 mb-4">Monthly Giving ({new Date().getFullYear()})</h3>
-            {analytics?.monthly?.length === 0 ? (
+            {!analytics?.monthly?.length ? (
               <p className="text-gray-400 text-sm">No data yet for this year</p>
             ) : (
               <div className="space-y-2">
-                {analytics?.monthly?.map((m) => {
+                {analytics.monthly.map((m) => {
                   const pct = ytdTotal > 0 ? (parseFloat(m.total) / ytdTotal) * 100 : 0;
                   return (
                     <div key={m.month}>
@@ -120,13 +131,18 @@ export default function DonationDashboard() {
             )}
           </div>
 
-          {/* Recent donations */}
           <div className="card">
             <h3 className="font-semibold text-gray-900 mb-4">Recent Donations</h3>
             <div className="space-y-3">
-              {analytics?.recent?.length === 0 ? (
-                <p className="text-gray-400 text-sm">No donations recorded yet</p>
-              ) : analytics?.recent?.map((d) => (
+              {!analytics?.recent?.length ? (
+                <div className="text-center py-6">
+                  <p className="text-gray-400 text-sm">No donations recorded yet</p>
+                  <button onClick={openModal}
+                    className="mt-3 text-sm font-medium text-church-700 hover:text-church-900 underline">
+                    Record the first donation
+                  </button>
+                </div>
+              ) : analytics.recent.map((d) => (
                 <div key={d.id} className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-900">
@@ -142,7 +158,6 @@ export default function DonationDashboard() {
             </div>
           </div>
 
-          {/* Yearly comparison */}
           <div className="card lg:col-span-2">
             <h3 className="font-semibold text-gray-900 mb-4">Year-over-Year</h3>
             <div className="overflow-x-auto">
@@ -166,6 +181,9 @@ export default function DonationDashboard() {
                       <td className="py-2">${y.donor_count > 0 ? (parseFloat(y.total) / y.donor_count).toFixed(2) : '—'}</td>
                     </tr>
                   ))}
+                  {!analytics?.yearly?.length && (
+                    <tr><td colSpan={5} className="py-4 text-center text-gray-400 text-sm">No data yet</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -176,41 +194,6 @@ export default function DonationDashboard() {
       {/* Records Tab */}
       {activeTab === 'records' && (
         <>
-          {showForm && (
-            <div className="card">
-              <h3 className="font-semibold text-gray-900 mb-4">Record New Donation</h3>
-              <form onSubmit={recordDonation} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($) *</label>
-                  <input required type="number" min="0.01" step="0.01" className="input"
-                    value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Fund</label>
-                  <select className="input" value={form.fund} onChange={(e) => setForm({ ...form, fund: e.target.value })}>
-                    {FUNDS.map((f) => <option key={f}>{f}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Method</label>
-                  <select className="input" value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })}>
-                    {['cash', 'check', 'card', 'online', 'other'].map((m) => <option key={m}>{m}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                  <input type="date" className="input" value={form.donated_at}
-                    onChange={(e) => setForm({ ...form, donated_at: e.target.value })} />
-                </div>
-                <div className="sm:col-span-2 flex gap-2">
-                  <button type="submit" className="btn-primary">Save</button>
-                  <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Filters */}
           <div className="card flex flex-wrap gap-4">
             <div>
               <label className="block text-xs text-gray-500 mb-1">From</label>
@@ -245,6 +228,16 @@ export default function DonationDashboard() {
                 <tbody className="divide-y divide-gray-100">
                   {loading ? (
                     <tr><td colSpan={5} className="text-center py-10 text-gray-400">Loading…</td></tr>
+                  ) : data.donations.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="text-center py-10">
+                        <p className="text-gray-400 text-sm">No donations recorded yet</p>
+                        <button onClick={openModal}
+                          className="mt-2 text-sm font-medium text-church-700 hover:text-church-900 underline">
+                          Record a donation
+                        </button>
+                      </td>
+                    </tr>
                   ) : data.donations.map((d) => (
                     <tr key={d.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">{new Date(d.donated_at).toLocaleDateString()}</td>
@@ -265,22 +258,92 @@ export default function DonationDashboard() {
       {activeTab === 'by_fund' && (
         <div className="card">
           <h3 className="font-semibold text-gray-900 mb-4">Giving by Fund</h3>
-          <div className="space-y-4">
-            {analytics?.by_fund?.map((f) => {
-              const pct = data.total_amount > 0 ? (parseFloat(f.total) / data.total_amount) * 100 : 0;
-              return (
-                <div key={f.fund}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium text-gray-700">{f.fund}</span>
-                    <span className="text-gray-500">{f.count} gifts · <span className="font-semibold text-gray-900">${parseFloat(f.total).toFixed(2)}</span></span>
+          {!analytics?.by_fund?.length ? (
+            <div className="text-center py-8">
+              <p className="text-gray-400 text-sm">No fund data yet</p>
+              <button onClick={openModal}
+                className="mt-2 text-sm font-medium text-church-700 hover:text-church-900 underline">
+                Record a donation
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {analytics.by_fund.map((f) => {
+                const pct = data.total_amount > 0 ? (parseFloat(f.total) / data.total_amount) * 100 : 0;
+                return (
+                  <div key={f.fund}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="font-medium text-gray-700">{f.fund}</span>
+                      <span className="text-gray-500">{f.count} gifts · <span className="font-semibold text-gray-900">${parseFloat(f.total).toFixed(2)}</span></span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div className="bg-church-500 h-2 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">{pct.toFixed(1)}% of total</p>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2">
-                    <div className="bg-church-500 h-2 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                  </div>
-                  <p className="text-xs text-gray-400 mt-0.5">{pct.toFixed(1)}% of total</p>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Record Donation Modal ── */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-gray-900">Record Donation</h2>
+              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+            <form onSubmit={recordDonation} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Amount ($) *</label>
+                <input
+                  required type="number" min="0.01" step="0.01"
+                  className={field} placeholder="0.00"
+                  value={form.amount}
+                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Fund</label>
+                  <select className={field} value={form.fund}
+                    onChange={(e) => setForm({ ...form, fund: e.target.value })}>
+                    {FUNDS.map((f) => <option key={f}>{f}</option>)}
+                  </select>
                 </div>
-              );
-            })}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Method</label>
+                  <select className={field} value={form.method}
+                    onChange={(e) => setForm({ ...form, method: e.target.value })}>
+                    {METHODS.map((m) => (
+                      <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Date</label>
+                <input type="date" className={field} value={form.donated_at}
+                  onChange={(e) => setForm({ ...form, donated_at: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Notes (optional)</label>
+                <input type="text" className={field} placeholder="e.g. Sunday offering"
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={closeModal}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">Cancel</button>
+                <button type="submit" disabled={saving}
+                  className="px-5 py-2 text-sm font-semibold bg-church-700 hover:bg-church-800 text-white rounded-lg disabled:opacity-60">
+                  {saving ? 'Saving…' : 'Save Donation'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
