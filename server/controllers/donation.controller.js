@@ -17,7 +17,7 @@ async function listDonations(req, res, next) {
     params.push(limit, offset);
 
     const { rows } = await db.query(
-      `SELECT d.*, u.first_name, u.last_name, u.email
+      `SELECT d.*, u.first_name, u.last_name, u.email, u.address, u.phone
        FROM donations d
        LEFT JOIN users u ON u.id = d.user_id
        ${where}
